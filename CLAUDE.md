@@ -434,6 +434,17 @@ Folded, the ball is a square window (`COMPACT_DP` = 104) and **every pixel of th
 - **A dock asked for while the card is still folding waits for the fold to land** (`dockWhenFolded`). A page going up (`show_html` → `setPageShown`) folds and docks in the same moment; docking mid-fold read the card's `p.y = 0` (so it docked at the top right) and the fold's end then reset the ball to scale 1 inside the small tab, which showed as a full-size ball cut in half over the page's 完成. `dock()` also pins `DOCK_SCALE` when the tab is applied, in case the shrink was cancelled on the way.
 - **The ledge is gone on the phone.** The ball used to hang off the bottom edge by its paws while a task ran or a page was up (`perchedByTask/User/Page`); that pose was also what held the square at 136 dp (the gripping paw reached 47.8 dp from the centre). `setWorking` sets the busy face and brings the ball out of the edge; `setPageShown` only docks. The bottom-ledge flag (`atLedge`) is still in the renderer and nothing on either body sets it.
 
+### The desk pet is the phone's folded body too (`ui/PhonePetView`, `core/pet/Pet.kt`, 2026-11-05)
+
+Same rule as the Mac: Settings → 形象与表情 picks 小球 or 桌宠 (`pet`, unset = off, only `on` shows her; `pet_character`, written at once by `VoiceConfig.setPet` → `onPetChanged` → `FloatingWindowUi.setPetBody`). What is shared lives in core, so the two bodies cannot disagree: `PetPose` (with `fallback`), `PetCharacters` (the five presets, their voices and personas, `blurb`), `PetMind.statePose` / `emotionPose` / `previewPose` and the idle/nap constants. `VoiceConfig.characterVoice` / `characterPersona` are the one answer for voice and manner — the pet's while she is the body, else the ball look's.
+
+- **No window of its own.** `PhonePetView` sits in the ball's area of the same window and the GL sphere goes `INVISIBLE` while she shows (folded only — the unfolded card keeps the sphere, as the Mac's conversation keeps its ball). Another overlay would count toward the 0.80 ceiling.
+- **Docked she peeks.** The `peek` drawing's right edge is the wall she holds; it is drawn on the ball area's centre line, which `applyDockedGeometry` puts on the screen edge, and the tab is sized from it (`dockTabW/Up/Down` ask the pet when `petBody`). Everything else about docking — 10 s idle, page up, working comes out, drag along the edge, pull to come out — is the ball's code, unchanged.
+- **The swipe on the ball walks one ring across both bodies** (`stepBallLook`): the ball's six looks, then the five pets, wrapping — past the last ball look it switches the body to the first pet, and back. A pet is announced as 「桌宠 · X」, since Andee is both.
+- **Hit test is her pixels** (`PhonePetView.hit`, alpha with a finger's slop), not the sphere's circle.
+- **No physics on the phone**: there is no desktop floor to fall to; she stands where she is dragged.
+- **Pictures are a scaled copy** of the Mac's (`tools/pet_phone_assets.py` → `app/src/main/assets/pet`, ~5 MB for five looks: stills at 560 px, a 12-frame idle loop at 520 px — the first cut at 220 px was visibly blurry in the unfolded card, which draws her ~700 px tall). Rerun it after `pet_sprites.py` / `pet_anim.py`.
+
 ### The full-screen faces
 
 `HtmlActivity`, `LookActivity`, `ScanActivity` and `SelfCheckActivity` are the only places the user sees a *finished* artefact rather than the ball, and they share `Theme.Body.Fullscreen` (`Theme.Body.Stage` extends it, for the four that animate their own enter/exit — see `ui/Stage.kt`). `SelfCheckActivity` is on `Theme.Body.Stage.NoPreview` on top of that, because with the service up it finishes without drawing a frame and a starting window would flash black — see "The launcher icon opens two doors". That theme exists for two bugs that came free with `Theme.Body`: its `android:statusBarColor` is `?attr/colorPrimaryVariant` = **purple_700**, so a purple stripe sat over every one of them; and `DayNight`'s light `windowBackground` made each open **flash white** before the dark content drew. The theme pins `#0F172A`, transparent system bars, and dark bar icons. Put any new full-screen Activity on it.
@@ -720,7 +731,81 @@ meetings, gear, friends) and lists exactly the tools some provider handles. What
   ball steal the first one's state. Both use `ballTaps(ballActions(…))`, the phone's vocabulary: tap stops and
   listens, double-tap stops and types, long-press opens the window; a sideways drag on the chat ball switches
   character.
+- **The desk pet replaces the ball when it is on (2026-11-05): one Andee on the desktop, not two.** `Main.kt` shows
+  `PetWindow` *or* `FloatingBall`, never both (a fresh install wears the ball: `pet` unset = off, only `on` shows her; 小球 is the picker's leftmost) (the ball when the pet is off or the native bridge is missing), and hands
+  the pet's window to everything that stood beside the ball (`ballWindow`: caption, prompt card, bubble). The pet takes
+  the ball's whole vocabulary (`BallActions`: tap talks, double-tap types, triple stops, long-press opens the window)
+  and keeps drag and throw; her pat-and-say-a-line game is gone, and so is the bubble inside her window — Andee's own
+  words are the caption's. What she wears is Andee's state (`assistantPose`, from `MacBall.face` / `spokenEmotion`,
+  `WorkLog` and the question/approval cards): LISTEN, SPEAK or the face the model wrote for the line (`emotionPose`),
+  SEARCH while a task acts and THINK while it waits on the model, HOLDING while a card is up; her idle acts and nap run
+  only when that is null. `girl` has a drawing for each (ten added via `tools/pet_sprites.py girl <pose…>`); other
+  looks fall back per pose (`PetPose.fallback`). **Each pet look is a character, like a ball look** (`PetLook.voice` / `persona`, `pet/PetPersonas.kt`): while the pet is the body, `Pet.voice()` / `Pet.persona()` replace the ball look's in `MacVoice` and `DesktopBrainHost.persona` (`Pet.isBody` is set by `Main.kt`, not asked of the bridge — loading the bridge in a test JVM gets it SIGKILLed). 奶油金 is plain Andee; 奶油金·短发 a sunny boy (`yangguangqingnian`); 大肥鱼 `fish`, a chubby whale maid (`tianmeixiaoyuan`; the slot was a 高冷性感 lady in black, then a quiet bookish girl — a saved `lady` reads as the fish); 小猫 `cat` (`roumeinvyou`, the ball kitten CREAM's voice; replaced 温柔男友 `beau`, which a saved value reads as). The two replaced the cobalt pair, and a saved `blue-girl` / `blue-boy` reads as them. A user's picture is plain Andee. Every pose is drawn at the box's full height and the box is as wide as the widest pose (`PetSprites.aspectOf` / `heightShare`): fitting each pose into the idle drawing's shape shrank every wider one, LISTEN by a fifth. Settings merged: one 形象 section picks 桌宠 or 小球, then the pet's
+  look (or, for the ball, the door to 形象与表情). `PetPoseTest` covers the mapping and the fallbacks.
+- **History: the desk pet was first a third window, and it is a body, not a picture** (`desktop/src/main/kotlin/…/pet/`). It is a
+  **library of looks**, not a cast: four presets (now Cream, Cream short, Chubby fish, Kitten) plus any picture the user
+  installs from the settings card — a shelf of thumbnails, because those names are names for pictures. The cobalt pair
+  is the logo's own blue. No girl/boy switch: they are one Andee drawn several ways. `PetLibrary.addCustom` trims,
+  scales and stores a user's picture under `~/Library/Application Support/Andee/pets`.
+  It takes over **none** of the ball's gestures: drag, throw, pat, double-click for the conversation. A click *is* an
+  interaction — she picks one of five faces (`PetTalk`: happy / angry / sad / sleepy / think), hops, and says one short
+  line in a bubble of its own window; every 7-14 s she also does something on her own (look up, smile, doze, sip a
+  bubble tea — `PetPose.TEA`), and after three quiet minutes she falls asleep and says so. Poses change with a 90-150 ms
+  crossfade, never a cut, and the idle breath is sampled at 60 fps (measured: the same CPU as 8 fps — the cost of this
+  window is compositing, not repainting).
+  **Latency is a feature here, so it is measured**: the tap reacts on `onPress` (a trackpad click is down-then-up and
+  waiting for the up added the whole press), the frame loop's first frame after waking used to have `dt = 0` and threw a
+  frame away, and the first pat after launch cost 84-117 ms until the parked bubble window and its font/bitmap were
+  warmed off-screen — it is 27-37 ms now. The speech bubble is a **parked window** moved into place, not a window that
+  appears: mapping one on the tap frame was most of that 100 ms.
+  **A frozen app taught the window rules, so they are not style**: a second always-painting window
+  parked off-screen (a "warm" bubble, to save 50 ms on the first line) plus window geometry changing while
+  that layer painted wedged the event thread inside Skiko's `MetalRedrawer.performDraw` — thread dump:
+  `BLOCKED` on the redrawer's monitor while holding `AWTTreeLock`, with the whole app unclickable. So: the
+  bubble is **hidden when empty**, never parked; window moves are **coalesced to one per frame** (the pointer
+  only records the position, the frame loop moves the window); and one gesture detector (`awaitEachGesture`)
+  owns press, drag, flick and double-click, because two detectors fought over the same down event and a
+  `detectTapGestures` that consumes the down silently kills `detectDragGestures` — "the pet cannot be dragged".
+  **The idle loop is real frame animation, computed not generated** (`tools/pet_anim.py`): the RGBA
+  master is warped by a mesh whose horizontal amplitude grows with height squared (feet planted), whose
+  phase lags 0.45 of a turn up the body (hair a beat behind the shoulders), plus 0.8% vertical breathing
+  — 20 frames at 20 fps, exactly aligned because one master produced them, which is the thing a generated
+  3x3 sheet could never do. Shipped as a WebP sequence (`pet/anim/<look>-idle-N.webp`, ~1.1 MB a look)
+  because Skia draws bitmaps and Compose has no `<video>`; **the VP9-alpha WebM is encoded too and archived
+  in `tools/pet-anim/webm/`** for a browser or Electron host, but the Mac app never loads it (playing video
+  there would mean a ~100 MB JavaCV/FFmpeg dependency). Amplitudes are at the rubbery edge on purpose:
+  1.2% sway, 0.8% breath — larger reads as a warped picture, not as breathing.
+  **The physics is its own file** (`PetMotion`, plain Kotlin, 14 unit tests — gravity 2600 dp/s², restitution 0.55,
+  walls 0.65, ground friction so a sideways throw skids instead of stopping dead, a pat lands without bouncing while a
+  throw bounces, and it sleeps when settled rather than asking for frames all afternoon; it also heals a body restored
+  above a floor instead of hanging it there). It lives on **every** display: `PetSpace` is the set of work areas, the
+  floor is asked at the pet's own x — a union *bounding box* would leave a hole between two screens of different heights
+  — and only the outer edges of the arrangement are walls.
+  **The window is the pet's bounding box and `setLocation` moves it every frame** — that is the only way a pet can leave
+  its corner on a desktop, and it is why the sprites must be trimmed to the body: every transparent pixel of the window
+  is a click taken from the app underneath. One mover only (`moveWindow`), deduped and on the AWT thread: two writers
+  per frame (pointer + physics loop) was the flicker, and a pose that flapped between two drawings on each micro-bounce
+  of a hop was the other ("she flashes when she jumps").
+  **The art is generated, not drawn**: prompts, poses, trim/resize rules live in `tools/pet_sprites.py`, and the sheets
+  ship as **WebP** decoded through Skia (a ninth of the PNG size; `ImageIO` stays as the fallback for a user's PNG).
+  A 3x3 generated sheet sliced into frames was tried and **rejected**: cells out of one generation cannot be aligned
+  without warping the body, and the frames at cell resolution looked worse than the full-resolution stills — so props
+  come back as single full-res drawings (`tea`) and the motion is procedural. It is **deliberately not blue by default**
+  — the ball already owns cobalt, and a blue-haired girl in a white dress is somebody else's mascot; the cobalt looks
+  are a choice in the shelf. Settings: `pet`, `pet_character`, `pet_size` (a *percentage* of the look's own height),
+  `pet_pos` (the feet).
 - **Notifications come from `usernoted`'s SQLite store, and where it is depends on the macOS version** (`notifCandidates` in `AndeeMac.swift`): macOS 15 keeps it in `~/Library/Group Containers/group.com.apple.usernoted/db2`, earlier systems under `confstr(_CS_DARWIN_USER_DIR)` + `com.apple.notificationcenter/db2` (never derive that from `$TMPDIR` — the JVM replaces it). Only the first was tried, and a store that was not there was reported as missing Full Disk Access, so the user granted it and was told the same thing forever. `andee_notif_latest_id` now answers -2 for "no store anywhere" (`State.NOT_FOUND`, no permission button) and -1 for "exists but refuses us" (`NO_ACCESS`), and reads in process through `libsqlite3` (read-only, busy timeout, since `usernoted` is writing the WAL) instead of forking `/usr/bin/sqlite3`, which swallowed the reason.
+- **The native bridge builds with the Command Line Tools, no Xcode.** It used to need the macOS 14
+  SDK for one call — `SCScreenshotManager.captureImage`, the one-shot capture — which meant a machine
+  without a full Xcode could not compile `desktop/native/AndeeMac.swift` at all (`cannot find
+  'SCScreenshotManager' in scope`), and the app shipped without screen tools. That one call is now a
+  `SCStream` started, read once and stopped: same filter, same configuration, same picture, available
+  since 12.3. Verified end to end on 2026-11-05 by calling `andee_screenshot` through `dlopen` and
+  getting a 1280×827 PNG back. (Tried first: a downloaded Swift 5.10 toolchain + macOS 14.5 SDK. It
+  compiles, then the linker dies on the SDK's `.tbd` files — `unsupported tapi file type
+  '!tapi-tbd'` — because `ld` also comes from Xcode. Replacing the API was cheaper than replacing the
+  linker, and it makes the bridge buildable everywhere.) `Bridge.available` is logged with the pet's
+  window line as `bridge=true`, which is the one fact to check after a rebuild.
 - **`type_text` pastes even when the front app reports no focused element** (`MacScreen.typeBlind`). Mac WeChat answers `focused: false` to accessibility, and refusing there sent the model to the shell (`osascript` + ⌘V), which a notification's turn may not use — so a message Andee could read, it could not answer. The blind path sends ⌘V only (no ⌘A: with focus unknown, select-all may take the chat history), refuses when Andee's own window is active, and returns `unverified` with a note to check the screenshot and not to reach for the shell. Verified in WeChat's 文件传输助手 by reading the box back with ⌘A ⌘C. The pasteboard is still not restored afterwards — that was a deliberate choice (see `andee_set_pasteboard`).
 - **A click on an inactive app only activates it, so every click brings its app forward first** (`MacScreen.click` → `andee_activate_at`; keystrokes → `andee_activate_target`). Measured 2026-10-28 in Chrome with Finder in front: one click left focus on the page (`AXWebArea`), the second focused the text box. In the trace that turned into a sidebar click that "did nothing" and a `type_text` that pasted into the page and reported success — the task stalled on a box the model concluded it "cannot type into". Not verified end-to-end after the fix (the test window was the user's live Chrome).
 - **The main page is 动态 (Timeline), not a chat.** Besides what was said, it shows what happened as one quiet line each: a todo waking it, the review, topics folded, its writes to its own record (diary, self, wiki, a person, a care, a memory, a todo, the plan), a heartbeat's thought and its work turns, bubbles, notifications it let pass and why, meetings, the camera, a vault fill, shell commands. Two sources end in one place: the brain emits `BrainEvent` through `BrainHost.event` (core), and the body adds its own (`TimelineEvents`); both write `Scrollback.Role.EVENT` rows. **The phone does the same** (`ui/PhoneTimeline.kt` → `ChatHistory.Role.EVENT`, drawn by `HistoryListView.buildEventRow`; 全部 / 只看对话 is the key at the ball's lower left, mirroring 朗读), and `AndroidBrainHost.scrollback` filters those rows the same way. A notification stopped at a gate (a task running, the hourly cap) also leaves a row on both, since otherwise it looks like the device did not react. **A review is one row** (`BrainEvent.Kind.REVIEWED` with `items`; `LocalBrain.reviewItems` gathers its writes) and a review that wrote nothing shows nothing; a write that changed nothing (`unchanged` in the tool result) is no event, and a rewrite of something already there says 更新 / 改写 (`BrainEvent.updated`, from `overwrote` / `replaced`). A harvest straight after a sweep only summarises (`HARVEST_SUMMARY_ONLY`), because going through the review rules again wrote everything twice. The Mac's "this silence was already reviewed" is on disk (`last_sweep_attempt`), like the phone's `Notebook.lastSweepAt` — in memory it was forgotten by every restart and the same stretch was reviewed again. **Those rows are never given back to the brain** (`DesktopBrainHost.scrollback` filters them) — a review summary must not return as something said — and they fold with the topic they sit inside. A heartbeat that decided to sleep writes nothing. 全部 / 只看对话 in the header hides them (`timeline_events`).
