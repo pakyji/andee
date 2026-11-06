@@ -97,7 +97,7 @@ CodeFlying 是一个独立的服务，和本项目没有直接关系；它自己
   结束，也不硬编一条东西记下来。**手机厂商的助手没有"自己"，做不了这件事。**
 - **他有性格，不是一个主题皮肤。** 六个形象、十九种情绪，表情由模型自己挑，**一句话说到一半就能换脸**，
   跟着声音走。拨一下球就能换你在跟谁说话 —— 一个形象带着一套说话方式和一把声音。
-  **身体也可以换：** Mac 和手机上都能改穿**桌宠**（五个角色：Andee、奶油金、奶油金·短发、大肥鱼、小猫），
+  **身体也可以换：** Mac 和手机上都能改穿**桌宠**（五个角色：Andee、奶油金、奶油金·短发、Andee娘、小猫），
   它会站在桌面上、有重力、拍一下会跳，你在设置里选，装完默认还是小球。
 - **任何 App 都能用，而且不需要对方配合。** 不用暴露什么 intent、不用接 SDK，也不在任何「接入清单」上。
   它读无障碍树和截图，在一张带标号的网格上瞄准，而不是自己算坐标 —— 那恰恰是通用大模型最不擅长的事。
@@ -584,7 +584,7 @@ API 只认后一句。刚开通的服务默认是**后付费**，它只能在火
 | minSdk | 30 | Android 11 —— 因为要用 `AccessibilityAction.ACTION_IME_ENTER`（API 30+）和 `takeScreenshot`（API 30+） |
 | Java / Kotlin JVM target | 1.8 | `sourceCompatibility` 1.8、`jvmTarget = '1.8'` |
 | **构建用 JDK** | **17–20** | 见[配 JDK](#配-jdk)，这是最容易卡住的一步 |
-| versionCode / versionName | 24 / 0.12.0 | 策略见 [CHANGELOG.md](CHANGELOG.md) |
+| versionCode / versionName | 25 / 0.12.1 | 策略见 [CHANGELOG.md](CHANGELOG.md) |
 | applicationId / namespace | `net.kuafuai.andee` | 从模板里没改，不影响功能 |
 
 **运行库依赖**（`app/build.gradle`）：
@@ -1054,7 +1054,7 @@ CLAUDE.md               给 AI 编码助手看的架构说明（英文）
 随包分发的第三方组件清单在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。再分发之前请先看：
 **ML Kit 扫码 SDK 和 `play-services-*` 不是开源许可**，而且扫码模型是运行时从 Google 拉的。
 
-改了什么、以及版本号策略见 [CHANGELOG.md](CHANGELOG.md) —— 当前版本是 **`v0.12.0`**，故意停在
+改了什么、以及版本号策略见 [CHANGELOG.md](CHANGELOG.md) —— 当前版本是 **`v0.12.1`**，故意停在
 pre-1.0：线上协议和构建开关都还在动。
 
 ## 相关文档
