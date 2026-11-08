@@ -41,13 +41,18 @@ class LlmHttpException(val code: Int, val body: String) :
 }
 
 /**
- * One blocking call to an OpenAI-compatible `/chat/completions`, aimed at
- * DeepSeek.
+ * One blocking call to an OpenAI-compatible `/chat/completions`.
  *
  * Deliberately thin and deliberately **not** streaming. Streaming would let TTS
  * start talking a second or two earlier, but it costs an SSE parser plus
  * incremental `tool_calls` reassembly (arguments arrive as string fragments
  * across deltas), and none of that is needed to make the local brain work.
+ *
+ * The `thinking` / `reasoning_effort` pair is DeepSeek-only — see
+ * [supportsThinking]. OpenAI, Gemini's OpenAI-compatible endpoint and Meta's
+ * Model API all reject an unknown `thinking` parameter with HTTP 400, so those
+ * fields are sent only when the backend is DeepSeek-shaped, and never
+ * otherwise — not even as `{"type":"disabled"}`.
  *
  * Two shapes in here are easy to get wrong, and both are silent when wrong:
  *
@@ -163,11 +168,16 @@ class LlmClient(
         if (tools.length() > 0) {
             body.put("tools", tools).put("tool_choice", "auto")
         }
-        if (thinking && !noThinking) {
+        // `thinking` / `reasoning_effort` are DeepSeek-only: OpenAI, Gemini
+        // and Meta all 400 on an unknown `thinking` parameter — including
+        // {"type":"disabled"} — and `reasoning_effort: "high"` is rejected on
+        // non-reasoning models such as gpt-4o-mini. So for every other
+        // provider neither field is sent at all, and a user who left Deep
+        // thinking on while pointing at OpenAI gets a working request rather
+        // than a 400. DeepSeek behaviour is unchanged.
+        if (supportsThinking(baseUrl, model) && thinking && !noThinking) {
             body.put("thinking", JSONObject().put("type", "enabled"))
             body.put("reasoning_effort", reasoningEffort)
-        } else {
-            body.put("thinking", JSONObject().put("type", "disabled"))
         }
 
         val req = Request.Builder()
@@ -272,6 +282,28 @@ class LlmClient(
     companion object {
         private const val TAG = "Brain"
         private val JSON = "application/json; charset=utf-8".toMediaType()
+
+        /**
+         * Whether this backend understands DeepSeek's `thinking` /
+         * `reasoning_effort` pair. The only evidence the client has is the
+         * address and the model name, so both are checked: a DeepSeek base
+         * URL, or a DeepSeek model name on any host. The second half is what
+         * keeps CodeFlying working — its gateway lives on its own host but
+         * serves `deepseek-flash` by default, and it speaks the same pair.
+         *
+         * Deliberately narrow. Volcengine Ark is *not* matched: nothing in
+         * this repo treats Ark as DeepSeek-compatible in request shaping (the
+         * only Ark mention is the cached-tokens comment below), so an Ark
+         * endpoint gets the plain OpenAI shape until someone verifies what
+         * its gateway accepts. SelfCheck and VoiceConfig both ask here
+         * rather than re-deriving the rule, so the wire, the probe and the
+         * settings card cannot drift apart.
+         */
+        fun supportsThinking(baseUrl: String, model: String): Boolean {
+            val host = baseUrl.lowercase()
+            val name = model.lowercase()
+            return "deepseek" in host || "deepseek" in name
+        }
 
         /**
          * Turn the body's own schema list into OpenAI function specs.

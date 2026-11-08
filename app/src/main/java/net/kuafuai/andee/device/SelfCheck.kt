@@ -17,6 +17,7 @@ import android.provider.Settings
 import androidx.annotation.StringRes
 import net.kuafuai.andee.R
 import net.kuafuai.andee.config.VoiceConfig
+import net.kuafuai.andee.brain.LlmClient
 import net.kuafuai.andee.BuildConfig
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -459,7 +460,7 @@ object SelfCheck {
                 else R.string.check_detail_skipped_offline,
             )
         }
-        return when (val r = probeBackend(bc.baseUrl, bc.apiKey, bc.model)) {
+        return when (val r = probeBackend(bc.baseUrl, bc.apiKey, bc.model, bc.thinking, bc.reasoningEffort)) {
             is Reach.Ok -> Finding(
                 id = "backend",
                 title = R.string.check_title_model,
@@ -1254,20 +1255,34 @@ object SelfCheck {
     private enum class Kind { URL, KEY, BALANCE, MODEL, OTHER }
 
     /**
-     * Ask the backend who it is, without paying for an answer.
+     * Ask the backend who it is, and then ask it to answer — both, every time.
      *
      * `GET /models` is the listing every gateway aimed at this format exposes,
-     * and it decides all three cases at once: the key is exercised (401/403),
-     * the URL is exercised (a connect failure), and if it answers, its list can
-     * be compared against the configured name — so a typo comes back with *what
-     * was on offer* rather than with a bare 400.
+     * and it decides the key, the URL and the model name at once: the key is
+     * exercised (401/403), the URL is exercised (a connect failure), and if it
+     * answers, its list can be compared against the configured name — so a typo
+     * comes back with *what was on offer* rather than with a bare 400.
      *
-     * The chat probe is the fallback for a gateway with no `/models`. It is the
-     * expensive path, so it is bounded twice: `max_tokens = 1` and thinking
-     * off. All three misconfigurations are decided by validation, before any
-     * generation happens, so there is nothing to learn from letting it write.
+     * But a listing that names the model does **not** prove a chat request
+     * works: that is exactly how the `thinking` bug shipped — every provider
+     * passed this check while real turns 400'd on an unknown `thinking`
+     * parameter the listing never exercised. So a successful listing is now
+     * followed by a real `/chat/completions` call, built the way [LlmClient]
+     * builds one (same `thinking` gate included), before this returns OK.
+     * The chat probe is bounded twice: `max_tokens = 1` and a trivial prompt.
+     * All three misconfigurations are decided by validation, before any real
+     * generation happens, so there is nothing to learn from letting it write —
+     * except that the request shape itself is accepted, which is the whole
+     * point. A gateway with no `/models` (404/405) still falls through to the
+     * chat probe alone.
      */
-    private fun probeBackend(baseUrl: String, apiKey: String, model: String): Reach {
+    private fun probeBackend(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        thinking: Boolean,
+        reasoningEffort: String,
+    ): Reach {
         val http = OkHttpClient.Builder()
             .connectTimeout(PROBE_CONNECT_S, TimeUnit.SECONDS)
             .readTimeout(PROBE_READ_S, TimeUnit.SECONDS)
@@ -1316,21 +1331,51 @@ object SelfCheck {
         if (listed != null) {
             // An empty list on a 200 is a gateway that answers but tells
             // nothing; treat it as "reachable" rather than inventing a model
-            // complaint out of it.
-            return if (listed.isEmpty() || listed.contains(model)) Reach.Ok
-            else Reach.Bad(Kind.MODEL, listed.take(MODEL_SAMPLE).joinToString(", "))
+            // complaint out of it — and still prove the chat shape below.
+            if (listed.isNotEmpty() && !listed.contains(model)) {
+                return Reach.Bad(Kind.MODEL, listed.take(MODEL_SAMPLE).joinToString(", "))
+            }
+            return chatProbe(http, auth, baseUrl, model, thinking, reasoningEffort)
         }
 
+        return chatProbe(http, auth, baseUrl, model, thinking, reasoningEffort)
+    }
+
+    /**
+     * One minimal `/chat/completions` call, built exactly as [LlmClient]
+     * builds a turn — including the `thinking` / `reasoning_effort` pair
+     * only where [LlmClient.supportsThinking] says the backend understands
+     * it. That is the point: a probe that sent `thinking: disabled` to
+     * every provider (as this one used to) would pass OpenAI while the real
+     * turns 400'd, which is no probe at all.
+     *
+     * One DeepSeek caveat, accepted deliberately: with thinking on, the
+     * gateway still thinks before it answers, so a slow think can outlast
+     * the probe's read timeout and read as a URL failure. The prompt is one
+     * word and `max_tokens` is 1, so there is little to think about — and a
+     * probe that never exercised thinking would be the same hole again.
+     */
+    private fun chatProbe(
+        http: OkHttpClient,
+        auth: String,
+        baseUrl: String,
+        model: String,
+        thinking: Boolean,
+        reasoningEffort: String,
+    ): Reach {
         return try {
             val body = JSONObject()
                 .put("model", model)
                 .put("stream", false)
                 .put("max_tokens", 1)
-                .put("thinking", JSONObject().put("type", "disabled"))
                 .put(
                     "messages",
                     JSONArray().put(JSONObject().put("role", "user").put("content", "hi")),
                 )
+            if (LlmClient.supportsThinking(baseUrl, model) && thinking) {
+                body.put("thinking", JSONObject().put("type", "enabled"))
+                body.put("reasoning_effort", reasoningEffort)
+            }
             val req = Request.Builder()
                 .url("$baseUrl/chat/completions")
                 .addHeader("Authorization", auth)
@@ -1344,7 +1389,9 @@ object SelfCheck {
                     resp.code == 402 -> Reach.Bad(Kind.BALANCE, "HTTP 402")
                     resp.code == 429 -> Reach.Throttled
                     // 400 is what a bad model name comes back as, and the body
-                    // is where the gateway says which part of it it disliked.
+                    // is where the gateway says which part of it it disliked —
+                    // a rejected `thinking` parameter lands here too, which is
+                    // why this probe exists at all.
                     else -> Reach.Bad(
                         Kind.MODEL,
                         "HTTP ${resp.code}: ${resp.body?.string().orEmpty().take(200)}",

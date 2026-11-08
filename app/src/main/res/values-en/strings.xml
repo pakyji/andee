@@ -207,6 +207,13 @@
     <string name="common_medium">Medium</string>
     <string name="common_low">Low</string>
     <string name="settings_brain_local_note">The device runs the agent loop itself, with no hub. Without a key it will not take over.</string>
+    <string name="settings_llm_preset">Provider preset</string>
+    <string name="settings_llm_preset_note">Tap one to fill in its endpoint and model (paste your key above first). Deep thinking is turned off for every provider except DeepSeek — the others reject it.</string>
+    <string name="settings_llm_preset_openai">OpenAI — gpt-4o-mini</string>
+    <string name="settings_llm_preset_gemini">Gemini (AI Studio) — gemini-3.8-flash</string>
+    <string name="settings_llm_preset_meta">Meta Model API — muse-spark-1.3</string>
+    <string name="settings_llm_preset_llama">Meta Llama API — Llama-4-Maverick-17B-128E-Instruct-FP8 (limited preview)</string>
+    <string name="settings_llm_preset_deepseek">DeepSeek — deepseek-flash</string>
     <string name="settings_codeflying_get_key">No key? Sign up at the link below, then paste your key into the box underneath. New users get free credit.</string>
     <string name="settings_codeflying_open_site">Open CodeFlying.app ›</string>
     <string name="codeflying_url" translatable="false">https://www.codeflying.app/andee</string>
@@ -307,7 +314,7 @@
     <string name="settings_voice_speak_provider">Speaking</string>
     <string name="settings_voice_provider_system">System</string>
     <string name="settings_google_api_key">Google API key</string>
-    <string name="settings_google_api_key_hint">Vertex Express key — hearing and Google speaking both use it</string>
+    <string name="settings_google_api_key_hint">Vertex Express key — voice only (hearing and Google speaking). Not the brain key: a Gemini key for the brain goes in the On-device tab.</string>
     <string name="settings_google_key_builtin">Built in at package time — leave blank to use it</string>
     <string name="settings_google_project">Project number</string>
     <string name="settings_google_project_hint">The GCP project *number* (not its id); recognition needs it</string>
@@ -317,7 +324,7 @@
     <string name="settings_google_base_url">Endpoint</string>
     <string name="settings_google_language">Language</string>
     <string name="settings_google_language_hint">blank = detect automatically</string>
-    <string name="settings_voice_google_note">Recognition runs on Gemini Live (so it needs the project number and location); synthesis is plain HTTP. The key stays on this device.</string>
+    <string name="settings_voice_google_note">Voice only — these Google rows never reach the brain. Recognition runs on Gemini Live (so it needs the project number and location); synthesis is plain HTTP. The key stays on this device.</string>
     <string name="settings_section_diagnostics">Diagnostics</string>
     <string name="settings_section_advanced">Advanced</string>
     <string name="settings_max_steps">Max steps per task</string>

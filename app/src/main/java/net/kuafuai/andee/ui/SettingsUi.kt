@@ -615,16 +615,20 @@ class SettingsUi(
         // told what it is and how to turn it on. 云端 is still gated on the
         // user's own show_hub toggle: it is the only tab that is pure extra
         // configuration surface, so nobody who hasn't asked for it needs to
-        // see it. If the user picks CodeFlying without a configured build,
-        // [VoiceConfig.brainMode] silently falls back to local at runtime —
-        // the saved value sticks, so the picker rebuilds correctly, and
-        // installing a configured build later flips the behaviour on without
-        // the user having to re-pick.
-        // CodeFlying leads: it is the default tab on a fresh install, and the
-        // leftmost cell is the fallback (see [segmented]).
+        // see it. An explicit CodeFlying pick stays CodeFlying even on a
+        // build with no endpoint — there is no runtime fallback to local,
+        // so the service reports "no brain" instead — which is why only a
+        // *blank* saved value resolves by whether the build configured an
+        // endpoint (see [VoiceConfig.resolveBrainMode]).
+        // 本机 leads: it is the default tab on a fresh install on a build
+        // with no CodeFlying endpoint (see [VoiceConfig.resolveBrainMode]),
+        // and the leftmost cell is the fallback (see [segmented]) — so an
+        // unrecognised saved value fails closed to the tab whose key fields
+        // the user can actually fill in, rather than to a hosted backend
+        // this build has nowhere to send anything to.
         val options = buildList {
-            add(VoiceConfig.BRAIN_CODEFLYING to lctx.getString(R.string.settings_brain_codeflying))
             add(VoiceConfig.BRAIN_LOCAL to lctx.getString(R.string.settings_brain_local))
+            add(VoiceConfig.BRAIN_CODEFLYING to lctx.getString(R.string.settings_brain_codeflying))
             if (VoiceConfig.showHub(context)) {
                 add(VoiceConfig.BRAIN_HUB to lctx.getString(R.string.settings_brain_cloud))
             }
@@ -634,6 +638,10 @@ class SettingsUi(
         // tab the same way a tap on the cell would, or the card would keep showing
         // 本机 while saving CodeFlying.
         var pickBrain: (String) -> Unit = {}
+        // Same, for the Deep thinking picker: a provider preset has to move
+        // it the same way a tap would, or the card would save a value it is
+        // not showing.
+        var pickThinking: (String) -> Unit = {}
         val mode = segmented(panel, "brain", options, setterRef = { pickBrain = it }) { applyMode?.invoke(it, true) }
 
         // ---- 云端 tab ----
@@ -711,6 +719,26 @@ class SettingsUi(
             lctx.getString(R.string.settings_llm_base_url),
             hint = VoiceConfig.llmBaseUrlDefault(context),
         )
+        // Provider presets: one tap fills in the endpoint and model for a
+        // key the user already has, and turns Deep thinking off unless the
+        // provider is DeepSeek (only it understands the `thinking` /
+        // `reasoning_effort` pair — see LlmClient.supportsThinking). The
+        // key row above is left alone: the preset does not know it, and a
+        // tap that cleared it would be the worst kind of helpful. The tab
+        // is moved to 本机 first, so a tap from the CodeFlying tab does not
+        // fill in rows that are folded away and look like nothing happened.
+        // Everything here only edits what is on screen; 保存 still commits
+        // it, like every other row.
+        rowLabel(localBlock, lctx.getString(R.string.settings_llm_preset))
+        note(localBlock, lctx.getString(R.string.settings_llm_preset_note))
+        for (preset in VoiceConfig.LLM_PRESETS) {
+            linkNote(localBlock, lctx.getString(preset.labelRes)) {
+                pickBrain(VoiceConfig.BRAIN_LOCAL)
+                fields["llm_base_url"]?.setText(preset.baseUrl)
+                fields["llm_model"]?.setText(preset.model)
+                pickThinking(if (preset.thinking) "enabled" else "disabled")
+            }
+        }
 
         rowLabel(localBlock, lctx.getString(R.string.settings_llm_thinking))
         var applyThinking: ((String, Boolean) -> Unit)? = null
@@ -718,6 +746,7 @@ class SettingsUi(
             localBlock,
             "llm_thinking",
             listOf("enabled" to lctx.getString(R.string.common_on), "disabled" to lctx.getString(R.string.common_off)),
+            setterRef = { pickThinking = it },
         ) { applyThinking?.invoke(it, true) }
 
         val effortBlock = block(localBlock)

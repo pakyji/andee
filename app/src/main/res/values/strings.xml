@@ -184,6 +184,13 @@
     <string name="common_medium">中</string>
     <string name="common_low">低</string>
     <string name="settings_brain_local_note">设备自己跑 agent loop，不连 Hub。没有 Key 就不会接管。</string>
+    <string name="settings_llm_preset">服务商预设</string>
+    <string name="settings_llm_preset_note">点一个填入对应的接口地址和模型（先在上面粘贴你的密钥）。除 DeepSeek 外，深度思考都会被关掉 —— 其他服务商不接受这个参数。</string>
+    <string name="settings_llm_preset_openai">OpenAI — gpt-4o-mini</string>
+    <string name="settings_llm_preset_gemini">Gemini (AI Studio) — gemini-3.8-flash</string>
+    <string name="settings_llm_preset_meta">Meta Model API — muse-spark-1.3</string>
+    <string name="settings_llm_preset_llama">Meta Llama API — Llama-4-Maverick-17B-128E-Instruct-FP8 (limited preview)</string>
+    <string name="settings_llm_preset_deepseek">DeepSeek — deepseek-flash</string>
     <string name="settings_codeflying_get_key">没有密钥？到下面的链接注册登录，复制你的密钥粘贴到下方输入框。新用户可免费获得额度。</string>
     <string name="settings_codeflying_open_site">打开 CodeFlying.net ›</string>
     <string name="codeflying_url" translatable="false">https://www.codeflying.net/andee</string>
@@ -284,7 +291,7 @@
     <string name="settings_voice_speak_provider">朗读（说）</string>
     <string name="settings_voice_provider_system">系统</string>
     <string name="settings_google_api_key">Google API Key</string>
-    <string name="settings_google_api_key_hint">Vertex Express Key，识别和 Google 朗读都用它</string>
+    <string name="settings_google_api_key_hint">Vertex Express Key，仅供语音（识别和 Google 朗读），不是大脑密钥；大脑用的 Gemini 密钥填在本机 tab。</string>
     <string name="settings_google_key_builtin">已内置(编译时写入),留空即用它</string>
     <string name="settings_google_project">项目号</string>
     <string name="settings_google_project_hint">GCP 的项目编号(不是项目名),识别要用</string>
@@ -294,7 +301,7 @@
     <string name="settings_google_base_url">接口地址</string>
     <string name="settings_google_language">语言</string>
     <string name="settings_google_language_hint">留空 = 自动判断</string>
-    <string name="settings_voice_google_note">识别走 Gemini Live(需要项目号和区域),合成走 HTTP。密钥只存在这台设备上。</string>
+    <string name="settings_voice_google_note">仅供语音 —— 这里的 Google 设置不会传给大脑。大脑用的 Gemini 密钥请在本机 tab 选 Gemini 预设。识别走 Gemini Live(需要项目号和区域),合成走 HTTP。密钥只存在这台设备上。</string>
     <string name="settings_section_diagnostics">诊断</string>
     <string name="settings_section_advanced">高级</string>
     <string name="settings_max_steps">单次任务最多步数</string>

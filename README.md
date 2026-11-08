@@ -309,7 +309,7 @@ firmware limitation this app does not paper over. If you attach a dog, read
 [The robot dog](#the-robot-dog-usb-dongle) before the first move.
 
 **15. The brain is detachable from the body.**  
-It runs on the device itself (`brain = local`, the default, calling any OpenAI-compatible endpoint)  
+It runs on the device itself (`brain = local` — the default on a build with no CodeFlying endpoint configured, i.e. a plain clone; a CodeFlying-packaged build defaults to CodeFlying instead — calling any OpenAI-compatible endpoint)  
 or lives somewhere else and reaches the device over a WebSocket hub. The wire between the two is a  
 plain tool-schema contract, so either half can be replaced without rewriting the other. That is what  
 makes "any smart hardware as a body" a fact here rather than an aspiration.
@@ -492,12 +492,24 @@ To build the Android app yourself:
 like missing credentials.** Both go in ⚙ on the device — **one is required, the other only costs you  
 the voice:**
 
-**1. The brain key — required.** With `brain = local` (the out-of-box default) the agent loop runs on  
+**1. The brain key — required.** With `brain = local` (the out-of-box default on a build with no CodeFlying endpoint configured) the agent loop runs on  
 the device itself, against any OpenAI-compatible endpoint (`llm_api_key`, default  
 `https://api.openai.com/v1` — a Chinese-language card defaults to `https://api.deepseek.com`  
 instead). **Leave it empty and the local brain does not run at all** — nothing  
 behind it falls back to something else. The ball does at least say so out loud, rather than silently  
 doing nothing.
+
+In ⚙ → **Backend → On-device**, paste your key, then tap the matching preset — it fills in the endpoint and model, and turns Deep thinking off (only DeepSeek understands it; the others reject the request outright):
+
+| Key from | Base URL | Model |
+|---|---|---|
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| Google AI Studio (Gemini) | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.8-flash` |
+| Meta Model API | `https://api.meta.ai/v1` | `muse-spark-1.3` |
+| Meta Llama API | `https://api.llama.com/compat/v1/` | `Llama-4-Maverick-17B-128E-Instruct-FP8` |
+| DeepSeek | `https://api.deepseek.com` | `deepseek-flash` |
+
+Gemini's native API (`:generateContent`) has no `/chat/completions` and cannot be used here — only its OpenAI-compatible endpoint above works. The Llama API is a limited preview / waitlisted; Meta now steers developers to the Model API, so prefer that for a Meta key. The Google rows under the voice section are voice-only (Vertex ASR/TTS) — an AI Studio key pasted there never reaches the brain.
 
 
 **2. The voice key — optional.** You pick the provider first, at the top of the same **Backend →

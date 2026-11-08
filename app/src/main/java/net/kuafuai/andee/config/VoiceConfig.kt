@@ -207,6 +207,59 @@ object VoiceConfig {
         const val DEFAULT_LLM_BASE_URL_EN = "https://api.openai.com/v1"
         const val DEFAULT_LLM_MODEL_EN = "gpt-4o-mini"
 
+        /**
+         * One tap in ⚙ → Backend → On-device that fills in the endpoint and
+         * model for a provider, so a key works out of the box instead of
+         * needing its owner to know the base URL by heart.
+         *
+         * [thinking] is the Deep thinking the preset leaves the picker on.
+         * Only DeepSeek understands the `thinking` / `reasoning_effort`
+         * pair ([net.kuafuai.andee.brain.LlmClient.supportsThinking]), so
+         * every other preset turns it off — a preset that left it on would
+         * hand the user a 400 on their first turn, which is the bug these
+         * presets exist to stop. The wire gate in LlmClient is still the
+         * authority; this is only what the card shows.
+         *
+         * The endpoints are the providers' OpenAI-compatible surfaces, which
+         * is the only shape LlmClient speaks: Gemini's native API
+         * (`:generateContent`) has no `/chat/completions` and cannot be used
+         * here, and the Llama API's native `/v1` is not its compat surface —
+         * it is `/compat/v1`. Gemini's model is `gemini-3.8-flash`, Google's
+         * current GA Flash (Sep 2026; `gemini-2.5-flash` also works). The
+         * Llama API is a limited preview / waitlisted — Meta now steers
+         * developers to the Model API above it, so that preset is the
+         * fallback, not the first choice, for a Meta key.
+         */
+        data class LlmPreset(
+            val labelRes: Int,
+            val baseUrl: String,
+            val model: String,
+            val thinking: Boolean,
+        )
+
+        val LLM_PRESETS = listOf(
+            LlmPreset(
+                net.kuafuai.andee.R.string.settings_llm_preset_openai,
+                "https://api.openai.com/v1", "gpt-4o-mini", false,
+            ),
+            LlmPreset(
+                net.kuafuai.andee.R.string.settings_llm_preset_gemini,
+                "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-3.8-flash", false,
+            ),
+            LlmPreset(
+                net.kuafuai.andee.R.string.settings_llm_preset_meta,
+                "https://api.meta.ai/v1", "muse-spark-1.3", false,
+            ),
+            LlmPreset(
+                net.kuafuai.andee.R.string.settings_llm_preset_llama,
+                "https://api.llama.com/compat/v1/", "Llama-4-Maverick-17B-128E-Instruct-FP8", false,
+            ),
+            LlmPreset(
+                net.kuafuai.andee.R.string.settings_llm_preset_deepseek,
+                "https://api.deepseek.com", "deepseek-flash", true,
+            ),
+        )
+
         /** [DEFAULT_LLM_BASE_URL] for a Chinese card, [DEFAULT_LLM_BASE_URL_EN] for an English one. */
         fun llmBaseUrlDefault(context: Context): String =
             if (uiLanguage(context) == LANG_EN) DEFAULT_LLM_BASE_URL_EN else DEFAULT_LLM_BASE_URL
@@ -367,7 +420,18 @@ object VoiceConfig {
                 BRAIN_HUB -> BRAIN_HUB
                 BRAIN_LOCAL -> BRAIN_LOCAL
                 BRAIN_CODEFLYING -> BRAIN_CODEFLYING
-                "" -> BRAIN_CODEFLYING
+                // Blank is "nobody chose yet", and it used to read as
+                // CodeFlying unconditionally — which on a build with no
+                // CodeFlying endpoint (a plain clone: empty
+                // CODEFLYING_DOMAIN, empty key) meant a fresh install had
+                // no working backend and the local key fields sat hidden
+                // behind the CodeFlying tab, while the README promised
+                // local was the default. So blank is CodeFlying only when
+                // the build actually configured a CodeFlying endpoint to
+                // point at; otherwise it is local, where the user's own key
+                // is read. An operator-packaged CodeFlying build keeps its
+                // one-tap default, and a clone build matches the docs.
+                "" -> if (codeFlyingEndpoint(context) != null) BRAIN_CODEFLYING else BRAIN_LOCAL
                 else -> BRAIN_LOCAL
             }
         }
@@ -379,6 +443,15 @@ object VoiceConfig {
             // see or edit the endpoints. llm_model / thinking / effort are
             // deliberately *still* read from prefs so the same picker in
             // [SettingsUi] applies to both local and CodeFlying.
+            //
+            // `thinking` here is the user's saved preference, ungated: the
+            // wire gate lives in [net.kuafuai.andee.brain.LlmClient], which
+            // is the one place that knows the endpoint and model in effect
+            // at send time, and gating it here as well would silently
+            // rewrite the preference — point at OpenAI, save, point back at
+            // DeepSeek, and Deep thinking would come back off. The presets
+            // in [LLM_PRESETS] are what turn the picker off for a
+            // non-DeepSeek provider; this config just carries the choice.
             if (mode == BRAIN_CODEFLYING) {
                 return BrainConfig(
                     mode = BRAIN_CODEFLYING,
@@ -692,10 +765,14 @@ object VoiceConfig {
                 "hub_url" to hc.url,
                 "device_id" to hc.deviceId,
                 "device_name" to hc.deviceName,
-                // What the card selects: nothing saved is CodeFlying (the default tab for a
-                // new install), whether or not this build can run it — the tab then says so.
-                // Not bc.mode, which has CodeFlying already resolved away to local.
-                "brain" to p.getString("brain", "").orEmpty().trim().lowercase().ifEmpty { BRAIN_CODEFLYING },
+                // What the card selects: the mode in effect, through
+                // [resolveBrainMode] — so a fresh install on a build with no
+                // CodeFlying endpoint opens on the On-device tab (where the
+                // key fields are), and a CodeFlying-packaged build still
+                // opens on CodeFlying. It used to hard-code CodeFlying here
+                // whatever the build could run, which is how the card showed
+                // a tab whose backend had nowhere to send anything.
+                "brain" to resolveBrainMode(context, p.getString("brain", "")),
                 "show_hub" to if (showHub(context)) "on" else "off",
                 // llm_api_key / llm_base_url / llm_model are the 本机 tab's rows —
                 // the user's own credentials and the endpoint they point at.

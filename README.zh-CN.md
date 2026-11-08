@@ -274,7 +274,7 @@ NRF24L01）接入，所以一个请求 —— *走到厨房，告诉我台面上
 接狗之前，先读[机器狗](#机器狗usb-加密狗)。
 
 **15. 大脑可以和身体分离。**
-大脑可以跑在设备本机（`brain = local`，默认，接任意 OpenAI 兼容端点），也可以待在别处、通过
+大脑可以跑在设备本机（`brain = local`，没有配置 CodeFlying 端点的包默认是本机；CodeFlying 打包的包默认是 CodeFlying，接任意 OpenAI 兼容端点），也可以待在别处、通过
 WebSocket hub 连到设备。两者之间只是一份普通的工具 schema 契约 —— 任何一半都能被换掉而不用
 重写另一半。**这才是"以任意智能硬件为身体"在这里是事实而非愿景的原因。**
 
@@ -310,7 +310,7 @@ Android 或桌面的类型。
 
 Android 上，身体是一个前台服务，没有主界面。一轮可以从五个地方开始 —— 离线唤醒词、语音或
 打字、一条通知、一个定时、或经 WebSocket 进来的请求 —— 先写进 `ChatHistory`，再交给当时生效的
-那个后端（`brain = local` 是开箱默认）。
+那个后端（`brain = local` 是开箱默认，除非是 CodeFlying 打包的包）。
 
 agent loop **就是** `LocalBrain`。它让系统提示词保持不变，把会变的部分（时钟、notebook 索引、
 情景、产物、照片）内联进 user 消息，这样服务商的前缀缓存仍然命中；工具表每轮重建；然后是一个
@@ -425,9 +425,21 @@ skiko 那个文件名本身就带着架构（`libskiko-macos-arm64.dylib` / `lib
 **仓库里不带任何密钥，而这两个缺失的密钥，报出来的错都不像「缺密钥」。** 两个都填在设备的 ⚙ 里 ——
 **一个是必须的，一个只是让你用不了语音：**
 
-**1. 大脑密钥 —— 必须。** `brain = local`（开箱默认）下，智能体循环就跑在设备本机，接任意
+**1. 大脑密钥 —— 必须。** `brain = local`（没有配置 CodeFlying 端点的包开箱默认）下，智能体循环就跑在设备本机，接任意
 OpenAI 兼容端点（`llm_api_key`，中文界面默认 `https://api.deepseek.com`）。**空着，本机大脑根本跑不起来**
 —— 它后面没有别的兜底。球至少会把这句话说出来，而不是默默什么都不做。
+
+在 ⚙ → **后端 → 本机**里粘贴密钥，再点对应的预设 —— 它会填好接口地址和模型，并把深度思考关掉（只有 DeepSeek 认这个参数，其他服务商会直接拒绝请求）：
+
+| 密钥来源 | 接口地址 | 模型 |
+|---|---|---|
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| Google AI Studio (Gemini) | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.8-flash` |
+| Meta Model API | `https://api.meta.ai/v1` | `muse-spark-1.3` |
+| Meta Llama API | `https://api.llama.com/compat/v1/` | `Llama-4-Maverick-17B-128E-Instruct-FP8` |
+| DeepSeek | `https://api.deepseek.com` | `deepseek-flash` |
+
+Gemini 的原生 API（`:generateContent`）没有 `/chat/completions`，在这里用不了 —— 只能用上面那个 OpenAI 兼容端点。Llama API 是 limited preview / 需排队，Meta 现在主推 Model API，所以 Meta 的密钥优先用 Model API。语音区下面的 Google 行只供语音（Vertex 识别/朗读）—— AI Studio 密钥粘贴在那里到不了大脑。
 
 **2. 语音密钥 —— 非必须。** 先在同一个**后端 → 本机** tab 顶部选服务商（**语音服务商** → 火山 /
 Google），再填该服务商的密钥。这是两个独立的服务，条款和数据处理各归各家。
