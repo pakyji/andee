@@ -32,3 +32,12 @@ andee-website/*.degraded.html
 
 # JVM 崩溃日志（本地跑 Mac 版崩溃时落在仓库根目录的 hs_err_pid*.log），是临时产物不是源码。
 hs_err_pid*.log
+
+# API keys and signing material must never be committed. The app reads keys
+# from settings, not from files — but a stray .env or keystore next to the
+# checkout is one `git add .` away from becoming public.
+.env
+*.key
+*.pem
+*.jks
+*.keystore
